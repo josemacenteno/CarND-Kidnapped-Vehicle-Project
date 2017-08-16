@@ -129,7 +129,7 @@ double ParticleFilter::dataAssociation(std::vector<LandmarkObs> map_landmarks, s
     double exp_y = dy_2 / (2*std_landmark[1]*std_landmark[1]);
     double prob = exp(-(exp_x + exp_y)) / prob_norm;
     weight *= prob;
-    std::cout << "closest landmark: " << obs.id << std::endl;
+    std::cout << "closest landmark: " << obs.id << "\tweight: " << weight << std::endl;
   }
   return weight;
 }
