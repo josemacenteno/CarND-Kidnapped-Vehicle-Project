@@ -20,15 +20,14 @@
 using namespace std;
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
-	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
+	// Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
   //TODO: Choose a better M.
-  num_particles = 10;
+  num_particles = 100;
   default_random_engine gen;
-   
 
   // This line creates a normal (Gaussian) distribution for x, y and theta
   normal_distribution<double> dist_x(x, std[0]);
@@ -36,35 +35,63 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   normal_distribution<double> dist_theta(theta, std[2]);
   double sample_x, sample_y, sample_theta;
   particles.clear();
+  weights.clear();
   
   for (int i = 0; i < num_particles; ++i) {
-    
     //  Sample x,y , theta from these normal distrubtions
     //  where "gen" is the random engine initialized earlier.
-    
      sample_x = dist_x(gen);
      sample_y = dist_y(gen);
      sample_theta = dist_theta(gen);   
      
      // Print your samples to the terminal.
      cout << "Sample " << i + 1 << " " << sample_x << " " << sample_y << " " << sample_theta << endl;
-     //Append particles in class attribute
-     particles.emplace_back(Particle{i, sample_x, sample_y, sample_theta, 1.0});
-  }
- 
-  
 
+     const double default_weight = 1.0;
+     //Append particles in class attribute
+     particles.emplace_back(Particle{i, sample_x, sample_y, sample_theta, default_weight});
+     weights.emplace_back(default_weight);
+  }
 
   is_initialized = true;
-
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
-	// TODO: Add measurements to each particle and add random Gaussian noise.
+	// Add measurements to each particle and add random Gaussian noise.
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
+  default_random_engine gen;
+  double pred_x, pred_y, pred_theta;
+  
+  //Calculate predictions
+  if(yaw_rate == 0.0){
+    double distance = velocity*delta_t;
+    for(int i = 0; i < num_particles; ++i){
+      pred_theta = particles[i].theta;
+      pred_x = particles[i].x + distance*cos(pred_theta);
+      pred_y = particles[i].y + distance*sin(pred_theta);
+    }
+  }
+  else{
+    double t_velocity = velocity*yaw_rate;
+    for(int i = 0; i < num_particles; ++i){
+      pred_theta = particles[i].theta + delta_t*yaw_rate;
+      pred_x = particles[i].x + t_velocity*(sin(pred_theta) - sin(particles[i].theta));
+      pred_y = particles[i].y + t_velocity*(cos(particles[i].theta) - cos(pred_theta));
+    }
+  }
 
+  //Add noise to prediction and assign back to particle vector
+  for(int i = 0; i < num_particles; ++i){
+    normal_distribution<double> dist_x(pred_x, std_pos[0]);
+    normal_distribution<double> dist_y(pred_y, std_pos[1]);
+    normal_distribution<double> dist_theta(pred_theta, std_pos[2]);
+    
+    particles[i].x = dist_x(gen);
+    particles[i].y = dist_y(gen);
+    particles[i].theta = dist_theta(gen); 
+  }
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
@@ -93,9 +120,7 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
-  num_particles = 10;
   default_random_engine gen;
-   
 
   // This line creates a normal (Gaussian) distribution for x, y and theta
   discrete_distribution<int> distribution(weights.begin(), weights.end());
@@ -107,8 +132,6 @@ void ParticleFilter::resample() {
      resampled_particles.push_back(particles[distribution(gen)]);
   }
   particles = resampled_particles;
-  
-
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
