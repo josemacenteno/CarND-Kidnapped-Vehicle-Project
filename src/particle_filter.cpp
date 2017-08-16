@@ -26,7 +26,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
   //TODO: Choose a better M.
-  num_particles = 100;
+  num_particles = 10;
   default_random_engine gen;
 
   // This line creates a normal (Gaussian) distribution for x, y and theta
@@ -94,14 +94,44 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   }
 }
 
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> map_landmark, std::vector<LandmarkObs>& observations) {
+double ParticleFilter::dataAssociation(std::vector<LandmarkObs> map_landmarks, std::vector<LandmarkObs>& observations, double std_landmark[]) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 
+  std::cout << "# observations: " << observations.size() << std::endl;
+  std::cout << "# landmarks in range: " << observations.size() << std::endl;
+  double weight = 1.0;
+  double prob_norm = 2*M_PI*std_landmark[0]*std_landmark[1];
+  for(auto &obs : observations){
+    //Initialized best distance with dist to first landmark
+    double closest_dist = dist(map_landmarks[0].x, map_landmarks[0].y, obs.x, obs.y);
+    double dx_2 = map_landmarks[0].x - obs.x;
+    dx_2 *= dx_2;
+    double dy_2 = map_landmarks[0].y - obs.y;
+    dy_2 *= dy_2;
 
+    // Search for the closest landmark
+    for(auto &map_landmark : map_landmarks){
+      double distance_to_landmark = dist( map_landmark.x, map_landmark.y, obs.x, obs.y);
+      if(distance_to_landmark < closest_dist){
+        closest_dist = distance_to_landmark;
+        obs.id = map_landmark.id;
+            double dx_2 = map_landmark.x - obs.x;
+            dx_2 *= dx_2;
+            double dy_2 = map_landmark.y - obs.y;
+            dy_2 *= dy_2;
+      }
+    }
 
+    double exp_x = dx_2 / (2*std_landmark[0]*std_landmark[0]);
+    double exp_y = dy_2 / (2*std_landmark[1]*std_landmark[1]);
+    double prob = exp(-(exp_x + exp_y)) / prob_norm;
+    weight *= prob;
+    std::cout << "closest landmark: " << obs.id << std::endl;
+  }
+  return weight;
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -116,14 +146,13 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
-  
   std::vector<LandmarkObs> map_observations;
   for (int p = 0; p < num_particles; ++p){
     map_observations.clear();
     double map_x;     // Local (vehicle coordinates) x position of landmark observation [m]
     double map_y;     // Local (vehicle coordinates) y position of landmark observation [m]
     
-    for ( auto &obs : observations ) {
+    for ( auto &obs : observations) {
       //Rotate observation using particle.theta and translate using particle's map coordinate
       map_x = obs.x * cos(particles[p].theta) - obs.y * sin(particles[p].theta) + particles[p].x;
       map_y = obs.x * sin(particles[p].theta) + obs.y * cos(particles[p].theta) + particles[p].y;
@@ -132,20 +161,24 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
     std::vector<LandmarkObs> landmarks_in_range;
     for(auto &map_landmark : map_landmarks.landmark_list){
-      //double dist_to particle = (map_landmark.x_f )
-      double sum_dist = 0.0 ;
-      if(sum_dist < 2*sensor_range){
+      double distance_to_particle = dist( map_landmark.x_f, map_landmark.y_f, particles[p].x, particles[p].y);
+      if(distance_to_particle < sensor_range){
         landmarks_in_range.emplace_back(LandmarkObs{map_landmark.id_i, map_landmark.x_f, map_landmark.y_f});
       }
-
     }
 
+    particles[p].weight = dataAssociation(landmarks_in_range , map_observations, std_landmark);
 
+    // std::vector<int> associations;
+    // std::vector<double> sense_x;
+    // std::vector<double> sense_y;
+    // for ( auto &obs : observations) {
+    //   associations.push_back(obs.id);
+    //   sense_x.push_back(obs.x);
+    //   sense_y.push_back(obs.y);
+    // }
 
-    dataAssociation(landmarks_in_range , map_observations);
-
-
-    //particles[p] = SetAssociations(particles[p], associations, sense_x, sense_y);
+    // particles[p] = SetAssociations(particles[p], associations, sense_x, sense_y);
     weights[p] = particles[p].weight;
 
   }
