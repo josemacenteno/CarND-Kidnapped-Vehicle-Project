@@ -25,6 +25,38 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
+  //TODO: Choose a better M.
+  num_particles = 10;
+  default_random_engine gen;
+   
+
+  // This line creates a normal (Gaussian) distribution for x, y and theta
+  normal_distribution<double> dist_x(x, std[0]);
+  normal_distribution<double> dist_y(y, std[1]);
+  normal_distribution<double> dist_theta(theta, std[2]);
+  double sample_x, sample_y, sample_theta;
+  particles.clear();
+  
+  for (int i = 0; i < num_particles; ++i) {
+    
+    //  Sample x,y , theta from these normal distrubtions
+    //  where "gen" is the random engine initialized earlier.
+    
+     sample_x = dist_x(gen);
+     sample_y = dist_y(gen);
+     sample_theta = dist_theta(gen);   
+     
+     // Print your samples to the terminal.
+     cout << "Sample " << i + 1 << " " << sample_x << " " << sample_y << " " << sample_theta << endl;
+     //Append particles in class attribute
+     particles.emplace_back(Particle{i, sample_x, sample_y, sample_theta, 1.0});
+  }
+ 
+  
+
+
+  is_initialized = true;
+
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -61,6 +93,21 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+  num_particles = 10;
+  default_random_engine gen;
+   
+
+  // This line creates a normal (Gaussian) distribution for x, y and theta
+  discrete_distribution<int> distribution(weights.begin(), weights.end());
+  vector<Particle> resampled_particles;
+
+   
+  for (int i = 0; i < num_particles; ++i) {
+     // Print your samples to the terminal.
+     resampled_particles.push_back(particles[distribution(gen)]);
+  }
+  particles = resampled_particles;
+  
 
 }
 
