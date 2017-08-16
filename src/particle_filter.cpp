@@ -94,11 +94,13 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   }
 }
 
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
+void ParticleFilter::dataAssociation(std::vector<LandmarkObs> map_landmark, std::vector<LandmarkObs>& observations) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
+
+
 
 }
 
@@ -114,6 +116,41 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+  
+  std::vector<LandmarkObs> map_observations;
+  for (int p = 0; p < num_particles; ++p){
+    map_observations.clear();
+    double map_x;     // Local (vehicle coordinates) x position of landmark observation [m]
+    double map_y;     // Local (vehicle coordinates) y position of landmark observation [m]
+    
+    for ( auto &obs : observations ) {
+      //Rotate observation using particle.theta and translate using particle's map coordinate
+      map_x = obs.x * cos(particles[p].theta) - obs.y * sin(particles[p].theta) + particles[p].x;
+      map_y = obs.x * sin(particles[p].theta) + obs.y * cos(particles[p].theta) + particles[p].y;
+      map_observations.push_back(LandmarkObs{obs.id, map_x, map_y});
+    }
+
+    std::vector<LandmarkObs> landmarks_in_range;
+    for(auto &map_landmark : map_landmarks.landmark_list){
+      //double dist_to particle = (map_landmark.x_f )
+      double sum_dist = 0.0 ;
+      if(sum_dist < 2*sensor_range){
+        landmarks_in_range.emplace_back(LandmarkObs{map_landmark.id_i, map_landmark.x_f, map_landmark.y_f});
+      }
+
+    }
+
+
+
+    dataAssociation(landmarks_in_range , map_observations);
+
+
+    //particles[p] = SetAssociations(particles[p], associations, sense_x, sense_y);
+    weights[p] = particles[p].weight;
+
+  }
+
+
 }
 
 void ParticleFilter::resample() {
