@@ -26,7 +26,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
   //TODO: Choose a better M.
-  num_particles = 10;
+  num_particles = 1000;
   default_random_engine gen;
 
   // This line creates a normal (Gaussian) distribution for x, y and theta
@@ -65,32 +65,26 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   double pred_x, pred_y, pred_theta;
   
   //Calculate predictions
-  if(yaw_rate == 0.0){
-    double distance = velocity*delta_t;
-    for(int i = 0; i < num_particles; ++i){
+  for(int i = 0; i < num_particles; ++i){
+    if(yaw_rate == 0.0){
+      double distance = velocity*delta_t;
       pred_theta = particles[i].theta;
       pred_x = particles[i].x + distance*cos(pred_theta);
       pred_y = particles[i].y + distance*sin(pred_theta);
     }
-  }
-  else{
-    double t_velocity = velocity*yaw_rate;
-    for(int i = 0; i < num_particles; ++i){
+    else{
+      double t_velocity = velocity/yaw_rate;
       pred_theta = particles[i].theta + delta_t*yaw_rate;
       pred_x = particles[i].x + t_velocity*(sin(pred_theta) - sin(particles[i].theta));
       pred_y = particles[i].y + t_velocity*(cos(particles[i].theta) - cos(pred_theta));
     }
-  }
-
-  //Add noise to prediction and assign back to particle vector
-  for(int i = 0; i < num_particles; ++i){
     normal_distribution<double> dist_x(pred_x, std_pos[0]);
     normal_distribution<double> dist_y(pred_y, std_pos[1]);
     normal_distribution<double> dist_theta(pred_theta, std_pos[2]);
     
     particles[i].x = dist_x(gen);
     particles[i].y = dist_y(gen);
-    particles[i].theta = dist_theta(gen); 
+    particles[i].theta = dist_theta(gen);
   }
 }
 
@@ -100,36 +94,38 @@ double ParticleFilter::dataAssociation(std::vector<LandmarkObs> map_landmarks, s
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 
-  std::cout << "# observations: " << observations.size() << std::endl;
-  std::cout << "# landmarks in range: " << observations.size() << std::endl;
+  // std::cout << "# observations: " << observations.size() << std::endl;
+  // std::cout << "# landmarks in range: " << observations.size() << std::endl;
   double weight = 1.0;
   double prob_norm = 2*M_PI*std_landmark[0]*std_landmark[1];
+  double distance_to_landmark;
+  double closest_dist, dx_2, dy_2;
+  double exp_x, exp_y, prob;
   for(auto &obs : observations){
     //Initialized best distance with dist to first landmark
-    double closest_dist = dist(map_landmarks[0].x, map_landmarks[0].y, obs.x, obs.y);
-    double dx_2 = map_landmarks[0].x - obs.x;
-    dx_2 *= dx_2;
-    double dy_2 = map_landmarks[0].y - obs.y;
-    dy_2 *= dy_2;
+    closest_dist = dist(map_landmarks[0].x, map_landmarks[0].y, obs.x, obs.y);
+    dx_2 = map_landmarks[0].x - obs.x;
+    dy_2 = map_landmarks[0].y - obs.y;
 
     // Search for the closest landmark
     for(auto &map_landmark : map_landmarks){
-      double distance_to_landmark = dist( map_landmark.x, map_landmark.y, obs.x, obs.y);
+      distance_to_landmark = dist( map_landmark.x, map_landmark.y, obs.x, obs.y);
       if(distance_to_landmark < closest_dist){
         closest_dist = distance_to_landmark;
         obs.id = map_landmark.id;
-            double dx_2 = map_landmark.x - obs.x;
-            dx_2 *= dx_2;
-            double dy_2 = map_landmark.y - obs.y;
-            dy_2 *= dy_2;
+        dx_2 = map_landmark.x - obs.x;
+        dy_2 = map_landmark.y - obs.y;
       }
     }
+    dx_2 *= dx_2;
+    dy_2 *= dy_2;
 
-    double exp_x = dx_2 / (2*std_landmark[0]*std_landmark[0]);
-    double exp_y = dy_2 / (2*std_landmark[1]*std_landmark[1]);
-    double prob = exp(-(exp_x + exp_y)) / prob_norm;
+    exp_x = dx_2 / (2*std_landmark[0]*std_landmark[0]);
+    exp_y = dy_2 / (2*std_landmark[1]*std_landmark[1]);
+    prob = exp(-(exp_x + exp_y)) / prob_norm;
     weight *= prob;
-    std::cout << "closest landmark: " << obs.id << "\tweight: " << weight << std::endl;
+    // std::cout << "closest landmark: " << obs.id << "\tweight: " << weight << std::endl;
+    // std::cout << "prob: " << prob_norm << "\tw: " << weight << std::endl;
   }
   return weight;
 }
@@ -172,13 +168,13 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     // std::vector<int> associations;
     // std::vector<double> sense_x;
     // std::vector<double> sense_y;
-    // for ( auto &obs : observations) {
+    // for ( auto &obs : map_observations) {
     //   associations.push_back(obs.id);
     //   sense_x.push_back(obs.x);
     //   sense_y.push_back(obs.y);
     // }
 
-    // particles[p] = SetAssociations(particles[p], associations, sense_x, sense_y);
+    //particles[p] = SetAssociations(particles[p], associations, sense_x, sense_y);
     weights[p] = particles[p].weight;
 
   }
